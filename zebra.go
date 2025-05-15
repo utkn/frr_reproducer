@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/netip"
 	"strings"
 	"sync"
@@ -37,7 +38,7 @@ func (z *Zebra) init() {
 	z.mtx.Lock()
 	defer z.mtx.Unlock()
 	if z.closeChan == nil {
-		z.zebraSoftware = zebra.NewSoftware(zebraAPIVersion, "frr8.2")
+		z.zebraSoftware = zebra.NewSoftware(zebraAPIVersion, "frr10.2")
 		z.closeChan = make(chan struct{})
 	}
 }
@@ -75,7 +76,7 @@ func (z *Zebra) connect() *zebra.Client {
 	}
 }
 
-func (z *Zebra) addRoute(client *zebra.Client, prefix netip.Prefix, nextHop netip.Addr) error {
+func (z *Zebra) addRoute(client *zebra.Client, prefix netip.Prefix, metric uint32, nextHopAddr net.IP, nextHopIfIndex uint32) error {
 	routeBody := &zebra.IPRouteBody{
 		Type: z.ClientType,
 		Safi: zebra.SafiUnicast,
@@ -83,8 +84,12 @@ func (z *Zebra) addRoute(client *zebra.Client, prefix netip.Prefix, nextHop neti
 			Prefix:    prefix.Addr().AsSlice(),
 			PrefixLen: uint8(prefix.Bits()),
 		},
-		Message:  zebra.MessageNexthop,
-		Nexthops: []zebra.Nexthop{{Gate: nextHop.AsSlice()}},
+		Message: zebra.MessageNexthop | zebra.MessageMetric,
+		Metric:  metric,
+		Nexthops: []zebra.Nexthop{{
+			Gate:    nextHopAddr,
+			Ifindex: nextHopIfIndex,
+		}},
 	}
 	return client.SendIPRoute(0, routeBody, false)
 }

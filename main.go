@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"os"
 
+	"github.com/osrg/gobgp/v3/pkg/zebra"
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -26,7 +27,13 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Failed to get interface: %v\n", err)
 				os.Exit(1)
 			}
-
+			zebra := &Zebra{
+				ZebraServer: "/run/frr/zserv.api",
+				ClientType:  zebra.RouteBGP,
+			}
+			zebra.init()
+			defer zebra.Close()
+			zc := zebra.connect()
 			listener, err := net.ListenTCP(
 				"tcp",
 				net.TCPAddrFromAddrPort(netip.MustParseAddrPort("10.42.0.2:80")),
@@ -43,7 +50,7 @@ func main() {
 				if len(lastDeleted) > 0 {
 					toAdd = lastDeleted
 				}
-				if err := addRoutes(link, toAdd); err != nil {
+				if err := addRoutes(link, zebra, zc, toAdd); err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to add routes: %v\n", err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
@@ -51,7 +58,7 @@ func main() {
 				w.WriteHeader(http.StatusOK)
 			})
 			mux.HandleFunc("/del", func(w http.ResponseWriter, r *http.Request) {
-				lastDeleted, err = delRandom(link, routes)
+				lastDeleted, err = delRandom(link, zebra, zc, routes)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to del routes: %v\n", err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -78,16 +85,11 @@ func genInitialRoutes() []netip.Prefix {
 	return nets
 }
 
-func delRandom(link netlink.Link, routes []netip.Prefix) ([]netip.Prefix, error) {
+func delRandom(link netlink.Link, zebra *Zebra, zc *zebra.Client, routes []netip.Prefix) ([]netip.Prefix, error) {
 	var deleted []netip.Prefix
 	for i := 0; i < 1000; i++ {
 		idx := i
-		err := netlink.RouteDel(&netlink.Route{
-			LinkIndex: link.Attrs().Index,
-			Dst:       netipx.PrefixIPNet(routes[idx]),
-			Protocol:  149,
-			Priority:  15,
-		})
+		err := zebra.delRoute(zc, routes[idx])
 		if err != nil {
 			return routes, err
 		}
@@ -96,14 +98,9 @@ func delRandom(link netlink.Link, routes []netip.Prefix) ([]netip.Prefix, error)
 	return deleted, nil
 }
 
-func addRoutes(link netlink.Link, routes []netip.Prefix) error {
+func addRoutes(link netlink.Link, zebra *Zebra, zc *zebra.Client, routes []netip.Prefix) error {
 	for _, route := range routes {
-		err := netlink.RouteAdd(&netlink.Route{
-			LinkIndex: link.Attrs().Index,
-			Dst:       netipx.PrefixIPNet(route),
-			Protocol:  149,
-			Priority:  15,
-		})
+		err := zebra.addRoute(zc, route, 15, nil, uint32(link.Attrs().Index))
 		if err != nil {
 			return err
 		}

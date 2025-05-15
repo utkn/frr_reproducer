@@ -5,5 +5,7 @@ RUN go build -o /frr_test
 
 FROM alpine:3.21
 
+VOLUME ["/run/frr"]
+
 COPY --from=builder /frr_test /frr_test
 CMD ["/frr_test"]

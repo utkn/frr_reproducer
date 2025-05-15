@@ -28,6 +28,7 @@ services:
       - SYS_ADMIN
       - NET_BROADCAST
     volumes:
+      - run_frr:/run/frr
       - ./daemons:/etc/frr/daemons:ro
       - ./frr2.conf:/etc/frr/frr.conf:ro
       - ./vtysh.conf:/etc/frr/vtysh.conf:ro
@@ -49,11 +50,18 @@ services:
       - ./frr3.conf:/etc/frr/frr.conf:ro
       - ./vtysh.conf:/etc/frr/vtysh.conf:ro
   frr_test:
+    depends_on:
+      - frr2
     image: frr_test
     container_name: frr_test
     network_mode: container:frr2
     cap_add:
       - NET_ADMIN
+    volumes:
+      - run_frr:/run/frr
     build:
       context: .
       dockerfile: Dockerfile
+
+volumes:
+  run_frr:
