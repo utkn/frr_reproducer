@@ -38,7 +38,7 @@ func (z *Zebra) init() {
 	z.mtx.Lock()
 	defer z.mtx.Unlock()
 	if z.closeChan == nil {
-		z.zebraSoftware = zebra.NewSoftware(zebraAPIVersion, "frr8.2")
+		z.zebraSoftware = zebra.NewSoftware(zebraAPIVersion, "frr9.1")
 		z.closeChan = make(chan struct{})
 	}
 }
