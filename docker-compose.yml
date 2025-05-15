@@ -13,7 +13,7 @@ networks:
     enable_ipv6: false
 services:
   frr2:
-    image: quay.io/frrouting/frr:10.2.1
+    image: quay.io/frrouting/frr:8.2.2
     container_name: frr2
     networks:
       lan1:
@@ -32,7 +32,7 @@ services:
       - ./frr2.conf:/etc/frr/frr.conf:ro
       - ./vtysh.conf:/etc/frr/vtysh.conf:ro
   frr3:
-    image: quay.io/frrouting/frr:10.2.1
+    image: quay.io/frrouting/frr:8.2.2
     container_name: frr3
     networks:
       wan:
