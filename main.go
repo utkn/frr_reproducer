@@ -29,7 +29,7 @@ func main() {
 			}
 			zebra := &Zebra{
 				ZebraServer: "/run/frr/zserv.api",
-				ClientType:  zebra.RouteBGP,
+				ClientType:  1, // routeKernel
 			}
 			zebra.init()
 			defer zebra.Close()
@@ -85,11 +85,11 @@ func genInitialRoutes() []netip.Prefix {
 	return nets
 }
 
-func delRandom(link netlink.Link, zebra *Zebra, zc *zebra.Client, routes []netip.Prefix) ([]netip.Prefix, error) {
+func delRandom(link netlink.Link, zb *Zebra, zc *zebra.Client, routes []netip.Prefix) ([]netip.Prefix, error) {
 	var deleted []netip.Prefix
 	for i := 0; i < 1000; i++ {
 		idx := i
-		err := zebra.delRoute(zc, routes[idx])
+		err := zb.delRoute(zc, routes[idx])
 		if err != nil {
 			return routes, err
 		}
@@ -98,13 +98,14 @@ func delRandom(link netlink.Link, zebra *Zebra, zc *zebra.Client, routes []netip
 	return deleted, nil
 }
 
-func addRoutes(link netlink.Link, zebra *Zebra, zc *zebra.Client, routes []netip.Prefix) error {
+func addRoutes(link netlink.Link, zb *Zebra, zc *zebra.Client, routes []netip.Prefix) error {
 	for _, route := range routes {
-		err := zebra.addRoute(zc, route, 15, nil, uint32(link.Attrs().Index))
+		err := zb.addRoute(zc, route, 15, nil, uint32(link.Attrs().Index))
 		if err != nil {
 			return err
 		}
 	}
+	zc.SendRedistribute(zebra.RouteBGP, 0)
 	return nil
 }
 
