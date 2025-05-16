@@ -29,7 +29,7 @@ func main() {
 			}
 			zebra := &Zebra{
 				ZebraServer: "/run/frr/zserv.api",
-				ClientType:  1, // routeKernel
+				ClientType:  16, // routeLDP
 			}
 			zebra.init()
 			defer zebra.Close()
@@ -89,8 +89,15 @@ func delRandom(link netlink.Link, zb *Zebra, zc *zebra.Client, routes []netip.Pr
 	var deleted []netip.Prefix
 	for i := 0; i < 1000; i++ {
 		idx := i
-		err := zb.delRoute(zc, routes[idx])
-		if err != nil {
+		if err := zb.delRoute(zc, routes[idx]); err != nil {
+			return routes, err
+		}
+		if err := netlink.RouteDel(&netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Dst:       netipx.PrefixIPNet(routes[idx]),
+			Protocol:  149,
+			Priority:  15,
+		}); err != nil {
 			return routes, err
 		}
 		deleted = append(deleted, routes[idx])
@@ -100,8 +107,15 @@ func delRandom(link netlink.Link, zb *Zebra, zc *zebra.Client, routes []netip.Pr
 
 func addRoutes(link netlink.Link, zb *Zebra, zc *zebra.Client, routes []netip.Prefix) error {
 	for _, route := range routes {
-		err := zb.addRoute(zc, route, 15, nil, uint32(link.Attrs().Index))
-		if err != nil {
+		if err := zb.addRoute(zc, route, 15, nil, uint32(link.Attrs().Index)); err != nil {
+			return err
+		}
+		if err := netlink.RouteAdd(&netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Dst:       netipx.PrefixIPNet(route),
+			Protocol:  149,
+			Priority:  15,
+		}); err != nil {
 			return err
 		}
 	}
