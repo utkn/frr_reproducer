@@ -24,22 +24,30 @@ We have 2 frr containers (frr2 and frr3) connected to each other. One frr_test c
 
 ## Triggering the bug
 
-Run the following command, it adds 2.5k /27 on frr2
+```shell
+# setup the topology:
+docker-compose -f docker-compose.yml build
+docker-compose -f docker-compose.yml up -d
 
-```bash
-docker exec frr2 bash -c "wget -q 10.42.0.2:80/add -O -; wget -q 10.42.0.2:80/del -O -; wget -q 10.42.0.2:80/add -O -"
-```
+# inject some routes
+docker exec frr2 bash -c "wget -q 10.42.0.2:80/add -O -"
 
-Check the routes received on the frr3 container (check after at least 5 seconds (advertisement interval)):
+# watch the received routes on frr3 (in another terminal)
+watch "docker exec -it frr3 vtysh -c 'show ip route summary'"
 
-```bash
-docker exec frr3 vtysh -c  "show ip route summary"
-```
+# once frr3 shows all routes (1000) run a sequence of removals and additions
+docker exec frr2 bash -c "wget -q 10.42.0.2:80/sequence -O -"
 
-If it shows 2503 the bug was not triggered, teardown and retry again. If it shows less the bug was triggered.
+# continue to wathch the routes on frr3 it will not show all 1000 again after the above sequence has completed
+#
 
-## Teardown
+# check the logs
+docker cp frr2:/tmp/frr.log .
+grep supress frr.log
 
-```bash
-docker-compose -f $PWD/docker-compose.yml down
+# teardown
+docker-compose -f docker-compose.yml down -v
+
+
+# remove the `!` on the line `! no bgp suppress-duplicates` in frr2.conf and try again. All routes will be there.
 ```
