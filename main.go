@@ -29,7 +29,7 @@ func main() {
 			}
 			zebra := &Zebra{
 				ZebraServer: "/run/frr/zserv.api",
-				ClientType:  16, // routeLDP
+				ClientType:  16,
 			}
 			zebra.init()
 			defer zebra.Close()
